@@ -76,7 +76,8 @@ enum
 {
 	Mode_Vanilla = 0, 
 	Mode_SimpleKZ, 
-	Mode_KZTimer, 
+	Mode_KZTimer,
+	Mode_HybridKZ, 
 	MODE_COUNT
 };
 
@@ -210,49 +211,56 @@ stock char gC_ModeNames[MODE_COUNT][] =
 {
 	"Vanilla", 
 	"SimpleKZ", 
-	"KZTimer"
+	"KZTimer",
+	"HybridKZ"
 };
 
 stock char gC_ModeNamesShort[MODE_COUNT][] = 
 {
 	"VNL", 
 	"SKZ", 
-	"KZT"
+	"KZT",
+	"HYB"
 };
 
 stock char gC_ModeKeys[MODE_COUNT][] = 
 {
 	"vanilla", 
 	"simplekz", 
-	"kztimer"
+	"kztimer",
+	"hybridkz"
 };
 
 stock float gF_ModeVirtualButtonRanges[MODE_COUNT] = 
 {
 	0.0, 
 	32.0, 
-	70.0
+	70.0,
+	32.0,
 };
 
 stock char gC_ModeStartSounds[MODE_COUNT][] = 
 {
 	"common/wpn_select.wav", 
 	"buttons/button9.wav", 
-	"buttons/button3.wav"
+	"buttons/button3.wav",
+	"buttons/button9.wav",
 };
 
 stock char gC_ModeEndSounds[MODE_COUNT][] = 
 {
 	"common/wpn_select.wav", 
 	"buttons/bell1.wav", 
-	"buttons/button3.wav"
+	"buttons/button3.wav",
+	"buttons/bell1.wav"
 };
 
 stock char gC_ModeFalseEndSounds[MODE_COUNT][] = 
 {
 	"common/wpn_select.wav", 
 	"buttons/button11.wav", 
-	"buttons/button2.wav"
+	"buttons/button2.wav",
+	"buttons/button11.wav"
 };
 
 stock char gC_StyleNames[STYLE_COUNT][] = 
@@ -279,7 +287,7 @@ stock char gC_CoreOptionNames[OPTION_COUNT][] =
 
 stock char gC_CoreOptionDescriptions[OPTION_COUNT][] = 
 {
-	"Movement Mode - 0 = Vanilla, 1 = SimpleKZ, 2 = KZTimer", 
+	"Movement Mode - 0 = Vanilla, 1 = SimpleKZ, 2 = KZTimer, 3 = HybridKZ", 
 	"Movement Style - 0 = Normal", 
 	"Automatic Restart Upon Teleport to Start - 0 = Disabled, 1 = Enabled", 
 	"Checkpoint Messages - 0 = Disabled, 1 = Enabled", 

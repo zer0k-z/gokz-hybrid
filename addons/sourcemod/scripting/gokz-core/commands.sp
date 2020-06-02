@@ -36,6 +36,9 @@ void RegisterCommands()
 	RegConsoleCmd("sm_kztimer", CommandKZTimer, "[KZ] Switch to the KZTimer mode.");
 	RegConsoleCmd("sm_kzt", CommandKZTimer, "[KZ] Switch to the KZTimer mode.");
 	RegConsoleCmd("sm_k", CommandKZTimer, "[KZ] Switch to the KZTimer mode.");
+	RegConsoleCmd("sm_hybridkz", CommandHybridKZ, "[KZ] Switch to the HybridKZ mode.");
+	RegConsoleCmd("sm_hyb", CommandHybridKZ, "[KZ] Switch to the HybridKZ mode.");
+	RegConsoleCmd("sm_h", CommandHybridKZ, "[KZ] Switch to the HybridKZ mode.");
 	RegConsoleCmd("sm_nc", CommandToggleNoclip, "[KZ] Toggle noclip.");
 	RegConsoleCmd("+noclip", CommandEnableNoclip, "[KZ] Noclip on.");
 	RegConsoleCmd("-noclip", CommandDisableNoclip, "[KZ] Noclip off.");
@@ -252,6 +255,12 @@ public Action CommandSimpleKZ(int client, int args)
 public Action CommandKZTimer(int client, int args)
 {
 	SwitchToModeIfAvailable(client, Mode_KZTimer);
+	return Plugin_Handled;
+}
+
+public Action CommandHybridKZ(int client, int args)
+{
+	SwitchToModeIfAvailable(client, Mode_HybridKZ);
 	return Plugin_Handled;
 }
 
