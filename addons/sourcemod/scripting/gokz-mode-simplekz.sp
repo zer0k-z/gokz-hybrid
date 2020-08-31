@@ -28,8 +28,9 @@ public Plugin myinfo =
 
 #define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-mode-simplekz.txt"
 
-#define MODE_VERSION 9
+#define MODE_VERSION 11
 #define PERF_TICKS 2
+#define PERF_VERTICAL_COMPENSATION 1.479301453 // Units to move player upwards to compensate simulated perfs
 #define PS_MAX_REWARD_TURN_RATE 0.703125 // Degrees per tick (90 degrees per second)
 #define PS_MAX_TURN_RATE_DECREMENT 0.015625 // Degrees per tick (2 degrees per second)
 #define PS_SPEED_MAX 26.54321 // Units
@@ -169,6 +170,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	RemoveCrouchJumpBind(player, buttons);
 	ReduceDuckSlowdown(player);
 	TweakVelMod(player, angles);
+	FixWaterBoost(player, buttons);
 	if (gB_Jumpbugged[player.ID])
 	{
 		TweakJumpbug(player);
@@ -485,21 +487,22 @@ float CalcWeaponVelMod(KZPlayer player)
 
 void TweakJump(KZPlayer player)
 {
-	if (player.TakeoffCmdNum - player.LandingCmdNum <= PERF_TICKS)
+	int cmdsSinceLanding = player.TakeoffCmdNum - player.LandingCmdNum;
+	
+	if (cmdsSinceLanding <= PERF_TICKS)
 	{
-		if (!player.HitPerf || player.TakeoffSpeed > SPEED_NORMAL)
+		if (cmdsSinceLanding > 1 || player.TakeoffSpeed > SPEED_NORMAL)
 		{
-			// Note that resulting velocity has same direction as landing velocity, not current velocity
-			float velocity[3], baseVelocity[3], newVelocity[3];
-			player.GetVelocity(velocity);
-			player.GetBaseVelocity(baseVelocity);
-			player.GetLandingVelocity(newVelocity);
-			newVelocity[2] = velocity[2];
-			SetVectorHorizontalLength(newVelocity, CalcTweakedTakeoffSpeed(player));
-			AddVectors(newVelocity, baseVelocity, newVelocity);
-			player.SetVelocity(newVelocity);
+			ApplyTweakedTakeoffSpeed(player);
+			
+			if (cmdsSinceLanding > 1)
+			{
+				CompensateSimulatedPerf(player);
+			}
+			
 			// Restore prestrafe lost due to briefly being on the ground
 			gF_PSVelMod[player.ID] = gF_PSVelModLanding[player.ID];
+			
 			if (gB_GOKZCore)
 			{
 				player.GOKZHitPerf = true;
@@ -517,6 +520,64 @@ void TweakJump(KZPlayer player)
 		player.GOKZHitPerf = false;
 		player.GOKZTakeoffSpeed = player.TakeoffSpeed;
 	}
+}
+
+void ApplyTweakedTakeoffSpeed(KZPlayer player)
+{
+	// Note that resulting velocity has same direction as landing velocity, not current velocity
+	float velocity[3], baseVelocity[3], newVelocity[3];
+	player.GetVelocity(velocity);
+	player.GetBaseVelocity(baseVelocity);
+	player.GetLandingVelocity(newVelocity);
+	
+	newVelocity[2] = velocity[2];
+	SetVectorHorizontalLength(newVelocity, CalcTweakedTakeoffSpeed(player));
+	AddVectors(newVelocity, baseVelocity, newVelocity);
+	
+	player.SetVelocity(newVelocity);
+}
+
+// Teleports the player up, making sure they don't get put into a ceiling
+void CompensateSimulatedPerf(KZPlayer player)
+{
+	float mins[3], maxs[3], startPosition[3], endPosition[3], newOrigin[3];
+	
+	player.GetOrigin(startPosition);
+	
+	endPosition = startPosition;
+	endPosition[2] = startPosition[2] + PERF_VERTICAL_COMPENSATION;
+	
+	GetEntPropVector(player.ID, Prop_Send, "m_vecMins", mins);
+	GetEntPropVector(player.ID, Prop_Send, "m_vecMaxs", maxs);
+	
+	Handle trace = TR_TraceHullFilterEx(
+		startPosition, 
+		endPosition, 
+		mins, 
+		maxs, 
+		MASK_PLAYERSOLID, 
+		TraceEntityFilterPlayers, 
+		player.ID);
+	
+	if (TR_DidHit(trace))
+	{
+		TR_GetEndPosition(newOrigin, trace);
+		
+		// Set vertical velocity to match what happens when player hits a ceiling
+		float newVelocity[3];
+		player.GetVelocity(newVelocity);
+		newVelocity[2] = -3.125;
+		player.SetVelocity(newVelocity);
+	}
+	else
+	{
+		player.GetOrigin(newOrigin);
+		newOrigin[2] = newOrigin[2] + PERF_VERTICAL_COMPENSATION;
+	}
+	
+	player.SetOrigin(newOrigin);
+	
+	delete trace;
 }
 
 void TweakJumpbug(KZPlayer player)
@@ -635,6 +696,27 @@ public bool TraceRayDontHitSelf(int entity, int mask, any data)
 
 
 // =====[ OTHER ]=====
+
+void FixWaterBoost(KZPlayer player, int buttons)
+{
+	if (GetEntProp(player.ID, Prop_Send, "m_nWaterLevel") >= 2) // WL_Waist = 2
+	{
+		// If duck is being pressed and we're not already ducking or on ground
+		if (GetEntityFlags(player.ID) & (FL_DUCKING | FL_ONGROUND) == 0
+			 && buttons & IN_DUCK && ~gI_OldButtons[player.ID] & IN_DUCK)
+		{
+			float newOrigin[3];
+			Movement_GetOrigin(player.ID, newOrigin);
+			newOrigin[2] += 9.0;
+			
+			TR_TraceHullFilter(newOrigin, newOrigin, view_as<float>( { -16.0, -16.0, 0.0 } ), view_as<float>( { 16.0, 16.0, 54.0 } ), MASK_PLAYERSOLID, TraceEntityFilterPlayers);
+			if (!TR_DidHit())
+			{
+				TeleportEntity(player.ID, newOrigin, NULL_VECTOR, NULL_VECTOR);
+			}
+		}
+	}
+}
 
 void RemoveCrouchJumpBind(KZPlayer player, int &buttons)
 {
