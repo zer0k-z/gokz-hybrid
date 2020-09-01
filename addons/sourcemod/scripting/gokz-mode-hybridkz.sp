@@ -586,7 +586,7 @@ float CalcTweakedTakeoffSpeed(KZPlayer player, bool jumpbug = false)
 		}
 		else if (player.Speed > PERF_SOFT_SPEED_CAP_END)
 		{
-			return (0.2 * player.Speed + 280);
+			return (0.2 * player.Speed + 200);
 		}
 		else return PERF_SOFT_SPEED_CAP_START;
 	}
@@ -598,7 +598,7 @@ float CalcTweakedTakeoffSpeed(KZPlayer player, bool jumpbug = false)
 		}
 		else if (player.LandingSpeed > PERF_SOFT_SPEED_CAP_END)
 		{
-			return (0.2 * player.LandingSpeed + 280);
+			return (0.2 * player.LandingSpeed + 200);
 		}		
 		else return PERF_SOFT_SPEED_CAP_START;
 	}
