@@ -25,7 +25,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define MODE_VERSION 2
+#define MODE_VERSION 3
 #define PERF_SOFT_SPEED_CAP_START 350.0
 #define PERF_SOFT_SPEED_CAP_END 750.0
 #define PERF_TICKS 2
@@ -366,58 +366,54 @@ float CalcPrestrafeVelMod(KZPlayer player, const float angles[3])
 	float newBonusSpeed = gF_PSBonusSpeed[player.ID];
 	
 	// If player is on the ground and turning at the required speed, and has the correct button inputs, reward it
-	if (player.OnGround && player.Turning && ValidPrestrafeButtons(player))
+	if (player.OnGround)
 	{
-		// If player changes their prestrafe direction, reset it
-		if (player.TurningLeft && !gB_PSTurningLeft[player.ID]
-			|| player.TurningRight && gB_PSTurningLeft[player.ID])
+		if (player.Turning && ValidPrestrafeButtons(player))
 		{
-			ResetVelMod(player);
-			newBonusSpeed = 0.0;					
-							
-		}
+			
+			// Keep track of the direction of the turn
+			gB_PSTurningLeft[player.ID] = player.TurningLeft;
+			
+			// Step one of calculating new turn rate
+			float newTurningRate = FloatAbs(CalcDeltaAngle(gF_OldAngles[player.ID][1], angles[1]));
 
-		// Keep track of the direction of the turn
-		gB_PSTurningLeft[player.ID] = player.TurningLeft;
-		
-		// Step one of calculating new turn rate
-		float newTurningRate = FloatAbs(CalcDeltaAngle(gF_OldAngles[player.ID][1], angles[1]));
+			// If no turning for just a few ticks, then forgive and calculate reward based on that no. of ticks
+			if (gI_PSTicksSinceIncrement[player.ID] <= PS_GRACE_TICKS)
+			{
+				// This turn occurred over multiple ticks, so scale appropriately
+				// Also cap turn rate at maximum reward turn rate
+				newTurningRate = FloatMin(PS_MAX_REWARD_TURN_RATE, 
+					newTurningRate / gI_PSTicksSinceIncrement[player.ID]);
+				
+				// Limit how fast turn rate can decrease (also scaled appropriately)
+				gF_PSTurnRate[player.ID] = FloatMax(newTurningRate, 
+					gF_PSTurnRate[player.ID] - PS_MAX_TURN_RATE_DECREMENT * gI_PSTicksSinceIncrement[player.ID]);
+				
+				newBonusSpeed += CalcPreRewardSpeed(gF_PSTurnRate[player.ID], baseSpeed) * gI_PSTicksSinceIncrement[player.ID];
+			}
+			else
+			{
+				// Cap turn rate at maximum reward turn rate
+				newTurningRate = FloatMin(PS_MAX_REWARD_TURN_RATE, newTurningRate);
+				
+				// Limit how fast turn rate can decrease
+				gF_PSTurnRate[player.ID] = FloatMax(newTurningRate, 
+					gF_PSTurnRate[player.ID] - PS_MAX_TURN_RATE_DECREMENT);
+				
+				// This is normal turning behaviour
+				newBonusSpeed += CalcPreRewardSpeed(gF_PSTurnRate[player.ID], baseSpeed);
+			}
 
-		// If no turning for just a few ticks, then forgive and calculate reward based on that no. of ticks
-		if (gI_PSTicksSinceIncrement[player.ID] <= PS_GRACE_TICKS)
-		{
-			// This turn occurred over multiple ticks, so scale appropriately
-			// Also cap turn rate at maximum reward turn rate
-			newTurningRate = FloatMin(PS_MAX_REWARD_TURN_RATE, 
-				newTurningRate / gI_PSTicksSinceIncrement[player.ID]);
-			
-			// Limit how fast turn rate can decrease (also scaled appropriately)
-			gF_PSTurnRate[player.ID] = FloatMax(newTurningRate, 
-				gF_PSTurnRate[player.ID] - PS_MAX_TURN_RATE_DECREMENT * gI_PSTicksSinceIncrement[player.ID]);
-			
-			newBonusSpeed += CalcPreRewardSpeed(gF_PSTurnRate[player.ID], baseSpeed) * gI_PSTicksSinceIncrement[player.ID];
+			gI_PSTicksSinceIncrement[player.ID] = 0;
 		}
-		else
+		else if (gI_PSTicksSinceIncrement[player.ID] > PS_GRACE_TICKS)
 		{
-			// Cap turn rate at maximum reward turn rate
-			newTurningRate = FloatMin(PS_MAX_REWARD_TURN_RATE, newTurningRate);
-			
-			// Limit how fast turn rate can decrease
-			gF_PSTurnRate[player.ID] = FloatMax(newTurningRate, 
+			// They definitely aren't turning, but limit how fast turn rate can decrease
+			gF_PSTurnRate[player.ID] = FloatMax(0.0, 
 				gF_PSTurnRate[player.ID] - PS_MAX_TURN_RATE_DECREMENT);
-			
-			// This is normal turning behaviour
-			newBonusSpeed += CalcPreRewardSpeed(gF_PSTurnRate[player.ID], baseSpeed);
 		}
-
-		gI_PSTicksSinceIncrement[player.ID] = 0;
 	}
-	else if (gI_PSTicksSinceIncrement[player.ID] > PS_GRACE_TICKS)
-	{
-		// They definitely aren't turning, but limit how fast turn rate can decrease
-		gF_PSTurnRate[player.ID] = FloatMax(0.0, 
-			gF_PSTurnRate[player.ID] - PS_MAX_TURN_RATE_DECREMENT);
-	}
+		
 	
 	if (newBonusSpeed < 0.0)
 	{
@@ -434,8 +430,7 @@ float CalcPrestrafeVelMod(KZPlayer player, const float angles[3])
 	}
 	
 	gF_PSBonusSpeed[player.ID] = newBonusSpeed;
-	gF_PSVelMod[player.ID] = 1.0 + (newBonusSpeed / baseSpeed);
-	
+	gF_PSVelMod[player.ID] = 1.0 + (newBonusSpeed / baseSpeed);	
 	return gF_PSVelMod[player.ID];
 }
 
@@ -443,7 +438,7 @@ bool ValidPrestrafeButtons(KZPlayer player)
 {
 	bool forwardOrBack = player.Buttons & (IN_FORWARD | IN_BACK) && !(player.Buttons & IN_FORWARD && player.Buttons & IN_BACK);
 	bool leftOrRight = player.Buttons & (IN_MOVELEFT | IN_MOVERIGHT) && !(player.Buttons & IN_MOVELEFT && player.Buttons & IN_MOVERIGHT);
-	return forwardOrBack || leftOrRight;
+	return forwardOrBack && leftOrRight;
 }
 
 float CalcPreRewardSpeed(float yawDiff, float baseSpeed)
