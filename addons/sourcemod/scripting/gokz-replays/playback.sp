@@ -373,13 +373,28 @@ void OnPlayerRunCmd_Playback(int client, int &buttons)
 					
 					if (hitPerf[bot])
 					{
-						if (botMode[bot] == Mode_SimpleKZ || botMode[bot] == Mode_HybridKZ)
+						if (botMode[bot] == Mode_SimpleKZ)
 						{
 							botTakeoffSpeed[bot] = FloatMin(botLandingSpeed[bot], (0.2 * botLandingSpeed[bot] + 200));
 						}
 						else if (botMode[bot] == Mode_KZTimer)
 						{
 							botTakeoffSpeed[bot] = FloatMin(botLandingSpeed[bot], 380.0);
+						}
+						else if (botMode[bot] == Mode_HybridKZ)
+						{
+							if (botLandingSpeed[bot] > 350.0)
+							{
+								botTakeoffSpeed[bot] = botLandingSpeed[bot];
+							}
+							else if (botLandingSpeed[bot] > 750.0)
+							{
+								botTakeoffSpeed[bot] = 0.2 * botLandingSpeed[bot] + 200;
+							}
+							else 
+							{
+								botTakeoffSpeed[bot] = 350.0;
+							}							
 						}
 						else
 						{
