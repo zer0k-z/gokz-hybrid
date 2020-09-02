@@ -556,7 +556,7 @@ void CompensateSimulatedPerf(KZPlayer player)
 		newOrigin[2] = newOrigin[2] + PERF_VERTICAL_COMPENSATION;
 	}
 	
-	player.SetOrigin(newOrigin);
+	GOKZ_SetValidJumpOrigin(player.ID, newOrigin);
 	
 	delete trace;
 }
