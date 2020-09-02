@@ -383,7 +383,7 @@ void OnPlayerRunCmd_Playback(int client, int &buttons)
 						}
 						else if (botMode[bot] == Mode_HybridKZ)
 						{
-							if (botLandingSpeed[bot] > 350.0)
+							if (botLandingSpeed[bot] < 350.0)
 							{
 								botTakeoffSpeed[bot] = botLandingSpeed[bot];
 							}
