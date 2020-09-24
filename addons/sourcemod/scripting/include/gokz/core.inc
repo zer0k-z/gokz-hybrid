@@ -223,7 +223,7 @@ stock char gC_ModeNamesShort[MODE_COUNT][] =
 	"VNL", 
 	"SKZ", 
 	"KZT",
-	"HYB"
+	"HKZ"
 };
 
 stock char gC_ModeKeys[MODE_COUNT][] = 
