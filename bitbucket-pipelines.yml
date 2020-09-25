@@ -52,9 +52,9 @@ pipelines:
             - apk update
             - apk add zip
             - mkdir builds
-            - zip -r builds/GOKZ-latest.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\*
+            - zip -r builds/GOKZ-hybrid-latest.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\*
             - cp builds/GOKZ-latest.zip builds/GOKZ-v${BITBUCKET_TAG}.zip
-            - zip -r builds/GOKZ-latest-upgrade.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\* cfg\*
+            - zip -r builds/GOKZ-hybrid-latest-upgrade.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\* cfg\*
             - cp builds/GOKZ-latest-upgrade.zip builds/GOKZ-v${BITBUCKET_TAG}-upgrade.zip
       - step:
           name: Upload Release
