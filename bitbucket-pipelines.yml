@@ -16,7 +16,15 @@ definitions:
       - cd ../../../
       - mv addons/sourcemod/scripting/*.smx addons/sourcemod/plugins
 
+clone:
+  depth: full
+
+
 pipelines:
+  default:
+    - step:
+        script:
+          - git push --mirror git@github.com:zer0k-z/gokz-hybrid.git
   custom:
     compile:
       - step: *compile
