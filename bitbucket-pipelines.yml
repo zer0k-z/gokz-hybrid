@@ -24,6 +24,7 @@ pipelines:
   default:
     - step:
         script:
+          - apk update && apk upgrade && apk add --no-cache git
           - git push --mirror git@github.com:zer0k-z/gokz-hybrid.git
   custom:
     compile:
