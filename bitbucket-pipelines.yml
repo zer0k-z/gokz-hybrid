@@ -8,7 +8,7 @@ definitions:
     script:
       - apk update
       - apk add wget libc6-compat libstdc++
-      - wget -q -O - "http://sourcemod.net/latest.php?os=linux&version=${SM_VERSION}" | tar x -vzf -
+      - wget -q -O - "http://sourcemod.net/latest.php?os=linux&version=1.10" | tar x -vzf -
       - cd ./addons/sourcemod/scripting
       - export BITBUCKET_COMMIT_SHORT=$(echo ${BITBUCKET_COMMIT} | cut -c1-7)
       - echo "#define GOKZ_VERSION \"${BITBUCKET_COMMIT_SHORT}\"" > include/gokz/version.inc
@@ -60,9 +60,9 @@ pipelines:
             - apk update
             - apk add zip
             - mkdir builds
-            - zip -r builds/GOKZ-latest.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\*
+            - zip -r builds/GOKZ-hybrid-latest.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\*
             - cp builds/GOKZ-latest.zip builds/GOKZ-v${BITBUCKET_TAG}.zip
-            - zip -r builds/GOKZ-latest-upgrade.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\* cfg\*
+            - zip -r builds/GOKZ-hybrid-latest-upgrade.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\* cfg\*
             - cp builds/GOKZ-latest-upgrade.zip builds/GOKZ-v${BITBUCKET_TAG}-upgrade.zip
       - step:
           name: Upload Release
