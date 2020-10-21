@@ -10,7 +10,7 @@
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
 #include <basecomm>
-#include <updater>
+
 
 #pragma newdecls required
 #pragma semicolon 1
@@ -26,7 +26,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-chat.txt"
+
 
 bool gB_BaseComm;
 
@@ -55,19 +55,13 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	gB_BaseComm = LibraryExists("basecomm");
 }
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	gB_BaseComm = gB_BaseComm || StrEqual(name, "basecomm");
 }
 
@@ -108,7 +102,7 @@ public Action OnPlayerDisconnect(Event event, const char[] name, bool dontBroadc
 
 public Action OnPlayerJoinTeam(Event event, const char[] name, bool dontBroadcast) // player_team pre hook
 {
-	event.BroadcastDisabled = true; // Block join team messages
+	event.SetBool("silent", true); // Block join team messages
 	return Plugin_Continue;
 }
 

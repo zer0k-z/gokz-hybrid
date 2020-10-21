@@ -7,7 +7,7 @@
 
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
-#include <updater>
+
 
 #include <gokz/kzplayer>
 
@@ -25,7 +25,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-tips.txt"
+
 
 bool gC_PluginsWithTipsLoaded[TIPS_PLUGINS_COUNT];
 ArrayList g_TipPhrases;
@@ -68,10 +68,7 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	
 	char gokzPlugin[PLATFORM_MAX_PATH];
 	for (int i = 0; i < TIPS_PLUGINS_COUNT; i++)
@@ -89,10 +86,7 @@ public void OnAllPluginsLoaded()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	
 	char gokzPlugin[PLATFORM_MAX_PATH];
 	for (int i = 0; i < TIPS_PLUGINS_COUNT; i++)

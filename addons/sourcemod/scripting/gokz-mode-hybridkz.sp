@@ -556,7 +556,14 @@ void CompensateSimulatedPerf(KZPlayer player)
 		newOrigin[2] = newOrigin[2] + PERF_VERTICAL_COMPENSATION;
 	}
 	
-	GOKZ_SetValidJumpOrigin(player.ID, newOrigin);
+	if (gB_GOKZCore)
+	{
+		GOKZ_SetValidJumpOrigin(player.ID, newOrigin);
+	}
+	else
+	{
+		SetEntPropVector(player.ID, Prop_Data, "m_vecAbsOrigin", newOrigin);
+	}
 	
 	delete trace;
 }

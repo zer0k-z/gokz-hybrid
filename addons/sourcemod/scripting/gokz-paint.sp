@@ -5,7 +5,7 @@
 
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
-#include <updater>
+
 
 #pragma newdecls required
 #pragma semicolon 1
@@ -24,7 +24,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-paint.txt"
+
 
 char gC_PaintColors[][16] =
 {
@@ -71,10 +71,7 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	
 	TopMenu topMenu;
 	if (LibraryExists("gokz-core") && ((topMenu = GOKZ_GetOptionsTopMenu()) != null))
@@ -85,10 +82,7 @@ public void OnAllPluginsLoaded()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 }
 
 
@@ -129,8 +123,7 @@ public void OnMapStart()
 
 void Paint(int client)
 {
-	if (!IsValidClient(client) ||
-		!IsPlayerAlive(client) ||
+	if (!IsValidClient(client) ||		
 		IsFakeClient(client))
 	{
 		return;

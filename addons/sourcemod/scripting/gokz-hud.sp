@@ -7,7 +7,7 @@
 #undef REQUIRE_PLUGIN
 #include <gokz/racing>
 #include <gokz/replays>
-#include <updater>
+
 
 #include <gokz/kzplayer>
 
@@ -25,7 +25,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-hud.txt"
+
 
 bool gB_GOKZRacing;
 bool gB_GOKZReplays;
@@ -67,10 +67,7 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	
 	TopMenu topMenu;
 	if (LibraryExists("gokz-core") && ((topMenu = GOKZ_GetOptionsTopMenu()) != null))
@@ -84,10 +81,7 @@ public void OnAllPluginsLoaded()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	
 	gB_GOKZRacing = gB_GOKZRacing || StrEqual(name, "gokz-racing");
 	gB_GOKZReplays = gB_GOKZReplays || StrEqual(name, "gokz-replays");

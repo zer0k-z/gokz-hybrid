@@ -12,7 +12,7 @@
 #undef REQUIRE_PLUGIN
 #include <gokz/localdb>
 #include <gokz/hud>
-#include <updater>
+
 
 #pragma newdecls required
 #pragma semicolon 1
@@ -28,7 +28,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-replays.txt"
+
 
 bool gB_GOKZLocalDB;
 char gC_CurrentMap[64];
@@ -74,10 +74,7 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	gB_GOKZLocalDB = LibraryExists("gokz-localdb");
 	
 	for (int client = 1; client <= MaxClients; client++)
@@ -91,10 +88,7 @@ public void OnAllPluginsLoaded()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	gB_GOKZLocalDB = gB_GOKZLocalDB || StrEqual(name, "gokz-localdb");
 }
 

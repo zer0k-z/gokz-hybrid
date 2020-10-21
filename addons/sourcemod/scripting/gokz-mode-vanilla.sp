@@ -8,7 +8,7 @@
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
 #include <gokz/core>
-#include <updater>
+
 
 #include <gokz/kzplayer>
 
@@ -26,9 +26,9 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-mode-vanilla.txt"
 
-#define MODE_VERSION 6
+
+#define MODE_VERSION 7
 
 float gF_ModeCVarValues[MODECVAR_COUNT] = 
 {
@@ -72,10 +72,7 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	if (LibraryExists("gokz-core"))
 	{
 		gB_GOKZCore = true;
@@ -101,10 +98,7 @@ public void OnPluginEnd()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	else if (StrEqual(name, "gokz-core"))
 	{
 		gB_GOKZCore = true;

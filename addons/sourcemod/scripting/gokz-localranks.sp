@@ -13,7 +13,7 @@
 #undef REQUIRE_PLUGIN
 #include <gokz/global>
 #include <gokz/jumpstats>
-#include <updater>
+
 
 #pragma newdecls required
 #pragma semicolon 1
@@ -29,7 +29,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-localranks.txt"
+
 
 bool gB_GOKZGlobal;
 Database gH_DB = null;
@@ -86,10 +86,7 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	gB_GOKZGlobal = LibraryExists("gokz-global");
 	
 	gH_DB = GOKZ_DB_GetDatabase();
@@ -116,10 +113,7 @@ public void OnAllPluginsLoaded()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	gB_GOKZGlobal = gB_GOKZGlobal || StrEqual(name, "gokz-global");
 }
 

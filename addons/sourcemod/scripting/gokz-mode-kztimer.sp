@@ -8,7 +8,7 @@
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
 #include <gokz/core>
-#include <updater>
+
 
 #include <gokz/kzplayer>
 
@@ -26,9 +26,9 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-mode-kztimer.txt"
 
-#define MODE_VERSION 206
+
+#define MODE_VERSION 207
 #define DUCK_SPEED_NORMAL 8.0
 #define PRE_VELMOD_MAX 1.104 // Calculated 276/250
 #define PERF_SPEED_CAP 380.0
@@ -67,6 +67,7 @@ float gF_PreVelMod[MAXPLAYERS + 1];
 float gF_PreVelModLastChange[MAXPLAYERS + 1];
 int gI_PreTickCounter[MAXPLAYERS + 1];
 int gI_OldButtons[MAXPLAYERS + 1];
+int gI_OldFlags[MAXPLAYERS + 1];
 bool gB_OldOnGround[MAXPLAYERS + 1];
 float gF_OldAngles[MAXPLAYERS + 1][3];
 float gF_OldVelocity[MAXPLAYERS + 1][3];
@@ -88,10 +89,7 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	if (LibraryExists("gokz-core"))
 	{
 		gB_GOKZCore = true;
@@ -117,10 +115,7 @@ public void OnPluginEnd()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	else if (StrEqual(name, "gokz-core"))
 	{
 		gB_GOKZCore = true;
@@ -159,6 +154,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	TweakVelMod(player);
 	ReduceDuckSlowdown(player);
 	FixWaterBoost(player, buttons);
+	FixDisplacementStuck(player);
 	if (gB_Jumpbugged[player.ID])
 	{
 		TweakJumpbug(player);
@@ -166,6 +162,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	
 	gB_Jumpbugged[player.ID] = false;
 	gI_OldButtons[player.ID] = buttons;
+	gI_OldFlags[player.ID] = GetEntityFlags(client);
 	gB_OldOnGround[player.ID] = Movement_GetOnGround(client);
 	gF_OldAngles[player.ID] = angles;
 	Movement_GetVelocity(client, gF_OldVelocity[client]);
@@ -608,6 +605,29 @@ void FixWaterBoost(KZPlayer player, int buttons)
 			{
 				TeleportEntity(player.ID, newOrigin, NULL_VECTOR, NULL_VECTOR);
 			}
+		}
+	}
+}
+
+void FixDisplacementStuck(KZPlayer player)
+{
+	int flags = GetEntityFlags(player.ID);
+	bool unducked = ~flags & FL_DUCKING && gI_OldFlags[player.ID] & FL_DUCKING;
+	
+	float standingMins[] = {-16.0, -16.0, 0.0};
+	float standingMaxs[] = {16.0, 16.0, 72.0};
+	
+	if (unducked)
+	{
+		// check if we're stuck after unducking and if we're stuck then force duck
+		float origin[3];
+		Movement_GetOrigin(player.ID, origin);
+		TR_TraceHullFilter(origin, origin, standingMins, standingMaxs, MASK_PLAYERSOLID, TraceEntityFilterPlayers);
+		
+		if (TR_DidHit())
+		{
+			player.SetVelocity(gF_OldVelocity[player.ID]);
+			SetEntProp(player.ID, Prop_Send, "m_bDucking", true);
 		}
 	}
 }

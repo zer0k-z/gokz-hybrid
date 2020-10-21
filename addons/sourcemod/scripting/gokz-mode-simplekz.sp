@@ -8,7 +8,7 @@
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
 #include <gokz/core>
-#include <updater>
+
 
 #include <gokz/kzplayer>
 
@@ -26,7 +26,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-mode-simplekz.txt"
+
 
 #define MODE_VERSION 11
 #define PERF_TICKS 2
@@ -77,7 +77,9 @@ bool gB_PSTurningLeft[MAXPLAYERS + 1];
 float gF_PSTurnRate[MAXPLAYERS + 1];
 int gI_PSTicksSinceIncrement[MAXPLAYERS + 1];
 int gI_OldButtons[MAXPLAYERS + 1];
+int gI_OldFlags[MAXPLAYERS + 1];
 bool gB_OldOnGround[MAXPLAYERS + 1];
+float gF_OldOrigin[MAXPLAYERS + 1][3];
 float gF_OldAngles[MAXPLAYERS + 1][3];
 float gF_OldVelocity[MAXPLAYERS + 1][3];
 bool gB_Jumpbugged[MAXPLAYERS + 1];
@@ -98,10 +100,7 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	if (LibraryExists("gokz-core"))
 	{
 		gB_GOKZCore = true;
@@ -127,10 +126,7 @@ public void OnPluginEnd()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	else if (StrEqual(name, "gokz-core"))
 	{
 		gB_GOKZCore = true;
@@ -171,6 +167,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	ReduceDuckSlowdown(player);
 	TweakVelMod(player, angles);
 	FixWaterBoost(player, buttons);
+	FixDisplacementStuck(player);
 	if (gB_Jumpbugged[player.ID])
 	{
 		TweakJumpbug(player);
@@ -178,9 +175,11 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	
 	gB_Jumpbugged[player.ID] = false;
 	gI_OldButtons[player.ID] = buttons;
-	gB_OldOnGround[player.ID] = Movement_GetOnGround(client);
-	Movement_GetEyeAngles(client, gF_OldAngles[player.ID]);
-	Movement_GetVelocity(client, gF_OldVelocity[client]);
+	gI_OldFlags[player.ID] = GetEntityFlags(player.ID);
+	gB_OldOnGround[player.ID] = player.OnGround;
+	player.GetOrigin(gF_OldOrigin[player.ID]);
+	player.GetEyeAngles(gF_OldAngles[player.ID]);
+	player.GetVelocity(gF_OldVelocity[player.ID]);
 	
 	return Plugin_Continue;
 }
@@ -491,14 +490,14 @@ void TweakJump(KZPlayer player)
 	
 	if (cmdsSinceLanding <= PERF_TICKS)
 	{
+		if (cmdsSinceLanding == 1)
+		{
+			NerfRealPerf(player);
+		}
+		
 		if (cmdsSinceLanding > 1 || player.TakeoffSpeed > SPEED_NORMAL)
 		{
 			ApplyTweakedTakeoffSpeed(player);
-			
-			if (cmdsSinceLanding > 1)
-			{
-				CompensateSimulatedPerf(player);
-			}
 			
 			// Restore prestrafe lost due to briefly being on the ground
 			gF_PSVelMod[player.ID] = gF_PSVelModLanding[player.ID];
@@ -522,30 +521,21 @@ void TweakJump(KZPlayer player)
 	}
 }
 
-void ApplyTweakedTakeoffSpeed(KZPlayer player)
+void NerfRealPerf(KZPlayer player)
 {
-	// Note that resulting velocity has same direction as landing velocity, not current velocity
-	float velocity[3], baseVelocity[3], newVelocity[3];
-	player.GetVelocity(velocity);
-	player.GetBaseVelocity(baseVelocity);
-	player.GetLandingVelocity(newVelocity);
+	// Not worth worrying about if player is already falling
+	if (player.VerticalVelocity < EPSILON)
+	{
+		return;
+	}
 	
-	newVelocity[2] = velocity[2];
-	SetVectorHorizontalLength(newVelocity, CalcTweakedTakeoffSpeed(player));
-	AddVectors(newVelocity, baseVelocity, newVelocity);
+	// Work out where the ground was when they bunnyhopped
+	float startPosition[3], endPosition[3], mins[3], maxs[3], groundOrigin[3];
 	
-	player.SetVelocity(newVelocity);
-}
-
-// Teleports the player up, making sure they don't get put into a ceiling
-void CompensateSimulatedPerf(KZPlayer player)
-{
-	float mins[3], maxs[3], startPosition[3], endPosition[3], newOrigin[3];
-	
-	player.GetOrigin(startPosition);
+	startPosition = gF_OldOrigin[player.ID];
 	
 	endPosition = startPosition;
-	endPosition[2] = startPosition[2] + PERF_VERTICAL_COMPENSATION;
+	endPosition[2] = endPosition[2] - 2.0; // Should be less than 2.0 units away
 	
 	GetEntPropVector(player.ID, Prop_Send, "m_vecMins", mins);
 	GetEntPropVector(player.ID, Prop_Send, "m_vecMaxs", maxs);
@@ -559,25 +549,42 @@ void CompensateSimulatedPerf(KZPlayer player)
 		TraceEntityFilterPlayers, 
 		player.ID);
 	
+	// This is expected to always hit
 	if (TR_DidHit(trace))
 	{
-		TR_GetEndPosition(newOrigin, trace);
+		TR_GetEndPosition(groundOrigin, trace);
 		
-		// Set vertical velocity to match what happens when player hits a ceiling
-		float newVelocity[3];
-		player.GetVelocity(newVelocity);
-		newVelocity[2] = -3.125;
-		player.SetVelocity(newVelocity);
-	}
-	else
-	{
+		// Teleport player downwards so it's like they jumped from the ground
+		float newOrigin[3];
 		player.GetOrigin(newOrigin);
-		newOrigin[2] = newOrigin[2] + PERF_VERTICAL_COMPENSATION;
+		newOrigin[2] -= gF_OldOrigin[player.ID][2] - groundOrigin[2];
+		
+		if (gB_GOKZCore)
+		{
+			GOKZ_SetValidJumpOrigin(player.ID, newOrigin);
+		}
+		else
+		{
+			SetEntPropVector(player.ID, Prop_Data, "m_vecAbsOrigin", newOrigin);
+		}
 	}
-	
-	player.SetOrigin(newOrigin);
 	
 	delete trace;
+}
+
+void ApplyTweakedTakeoffSpeed(KZPlayer player)
+{
+	// Note that resulting velocity has same direction as landing velocity, not current velocity
+	float velocity[3], baseVelocity[3], newVelocity[3];
+	player.GetVelocity(velocity);
+	player.GetBaseVelocity(baseVelocity);
+	player.GetLandingVelocity(newVelocity);
+	
+	newVelocity[2] = velocity[2];
+	SetVectorHorizontalLength(newVelocity, CalcTweakedTakeoffSpeed(player));
+	AddVectors(newVelocity, baseVelocity, newVelocity);
+	
+	player.SetVelocity(newVelocity);
 }
 
 void TweakJumpbug(KZPlayer player)
@@ -714,6 +721,29 @@ void FixWaterBoost(KZPlayer player, int buttons)
 			{
 				TeleportEntity(player.ID, newOrigin, NULL_VECTOR, NULL_VECTOR);
 			}
+		}
+	}
+}
+
+void FixDisplacementStuck(KZPlayer player)
+{
+	int flags = GetEntityFlags(player.ID);
+	bool unducked = ~flags & FL_DUCKING && gI_OldFlags[player.ID] & FL_DUCKING;
+	
+	float standingMins[] = {-16.0, -16.0, 0.0};
+	float standingMaxs[] = {16.0, 16.0, 72.0};
+	
+	if (unducked)
+	{
+		// check if we're stuck after unducking and if we're stuck then force duck
+		float origin[3];
+		Movement_GetOrigin(player.ID, origin);
+		TR_TraceHullFilter(origin, origin, standingMins, standingMaxs, MASK_PLAYERSOLID, TraceEntityFilterPlayers);
+		
+		if (TR_DidHit())
+		{
+			player.SetVelocity(gF_OldVelocity[player.ID]);
+			SetEntProp(player.ID, Prop_Send, "m_bDucking", true);
 		}
 	}
 }

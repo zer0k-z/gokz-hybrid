@@ -15,7 +15,7 @@
 
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
-#include <updater>
+
 
 #include <gokz/kzplayer>
 
@@ -33,7 +33,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-core.txt"
+
 
 Handle gH_ThisPlugin;
 Handle gH_DHooks_OnTeleport;
@@ -44,6 +44,7 @@ int gI_OldButtons[MAXPLAYERS + 1];
 int gI_TeleportCmdNum[MAXPLAYERS + 1];
 bool gB_OriginTeleported[MAXPLAYERS + 1];
 bool gB_VelocityTeleported[MAXPLAYERS + 1];
+bool gB_LateLoad;
 
 ConVar gCV_gokz_chat_prefix;
 ConVar gCV_sv_full_alltalk;
@@ -55,6 +56,7 @@ ConVar gCV_sv_full_alltalk;
 #include "gokz-core/misc.sp"
 #include "gokz-core/options.sp"
 #include "gokz-core/teleports.sp"
+#include "gokz-core/triggerfix.sp"
 
 #include "gokz-core/map/buttons.sp"
 #include "gokz-core/map/bhop_triggers.sp"
@@ -82,6 +84,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	}
 	
 	gH_ThisPlugin = myself;
+	gB_LateLoad = late;
 	
 	CreateNatives();
 	RegPluginLibrary("gokz-core");
@@ -104,14 +107,12 @@ public void OnPluginStart()
 	OnPluginStart_MapEnd();
 	OnPluginStart_MapZones();
 	OnPluginStart_Options();
+	OnPluginStart_Triggerfix();
 }
 
 public void OnAllPluginsLoaded()
 {
-	if (LibraryExists("updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 	
 	OnAllPluginsLoaded_Modes();
 	OnAllPluginsLoaded_OptionsMenu();
@@ -131,10 +132,7 @@ public void OnAllPluginsLoaded()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if (StrEqual(name, "updater"))
-	{
-		Updater_AddPlugin(UPDATER_URL);
-	}
+
 }
 
 
@@ -151,6 +149,7 @@ public void OnClientPutInServer(int client)
 	OnClientPutInServer_VirtualButtons(client);
 	OnClientPutInServer_Options(client);
 	OnClientPutInServer_BhopTriggers(client);
+	OnClientPutInServer_Triggerfix(client);
 	HookClientEvents(client);
 }
 
@@ -324,6 +323,7 @@ public Action OnNormalSound(int[] clients, int &numClients, char[] sample, int &
 public void OnEntityCreated(int entity, const char[] classname)
 {
 	SDKHook(entity, SDKHook_Spawn, OnEntitySpawned);
+	OnEntityCreated_Triggerfix(entity, classname);
 }
 
 public void OnEntitySpawned(int entity)
@@ -333,6 +333,11 @@ public void OnEntitySpawned(int entity)
 	OnEntitySpawned_MapStarts(entity);
 	OnEntitySpawned_MapEnd(entity);
 	OnEntitySpawned_MapZones(entity);
+}
+
+public void OnClientConnected(int client)
+{
+	OnClientConnected_Triggerfix(client);
 }
 
 public void OnRoundStart(Event event, const char[] name, bool dontBroadcast) // round_start post no copy hook
