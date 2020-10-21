@@ -9,7 +9,7 @@
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
 #include <gokz/localdb>
-
+#include <updater>
 
 #include <gokz/kzplayer>
 
@@ -76,12 +76,6 @@ public void OnAllPluginsLoaded()
 		}
 	}
 }
-
-public void OnLibraryAdded(const char[] name)
-{
-
-}
-
 
 
 // =====[ CLIENT EVENTS ]=====

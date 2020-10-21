@@ -98,8 +98,7 @@ public void OnPluginEnd()
 
 public void OnLibraryAdded(const char[] name)
 {
-
-	else if (StrEqual(name, "gokz-core"))
+	if (StrEqual(name, "gokz-core"))
 	{
 		gB_GOKZCore = true;
 		GOKZ_SetModeLoaded(Mode_Vanilla, true, MODE_VERSION);

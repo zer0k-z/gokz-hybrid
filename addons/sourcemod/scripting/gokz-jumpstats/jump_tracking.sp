@@ -1404,13 +1404,6 @@ public void OnChangeMovetype_JumpTracking(int client, MoveType oldMovetype, Move
 	}
 }
 
-public void OnChangeMovetype_JumpTracking(int client, MoveType oldMovetype, MoveType newMovetype)
-{
-	if (newMovetype == MOVETYPE_LADDER)
-	{
-		jumpTrackers[client].ladderGrabTick = GetGameTickCount();
-	}
-}
 
 
 

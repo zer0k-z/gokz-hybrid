@@ -90,13 +90,6 @@ void Call_GOKZ_OnOptionsLoaded(int client)
 	Call_Finish();
 }
 
-void Call_GOKZ_OnOptionsLoaded(int client)
-{
-	Call_StartForward(H_OnOptionsLoaded);
-	Call_PushCell(client);
-	Call_Finish();
-}
-
 void Call_GOKZ_OnOptionChanged(int client, const char[] option, int optionValue)
 {
 	Call_StartForward(H_OnOptionChanged);
