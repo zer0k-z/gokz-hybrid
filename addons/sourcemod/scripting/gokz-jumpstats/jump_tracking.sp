@@ -1403,7 +1403,6 @@ public void OnChangeMovetype_JumpTracking(int client, MoveType oldMovetype, Move
 
 
 
-
 // =====[ CHECKS ]=====
 
 static void UpdateValidCmd(int client, int buttons)

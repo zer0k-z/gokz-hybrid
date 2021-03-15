@@ -27,10 +27,8 @@ public Plugin myinfo =
 };
 
 
-
-#define MODE_VERSION 11
+#define MODE_VERSION 12
 #define PERF_TICKS 2
-#define PERF_VERTICAL_COMPENSATION 1.479301453 // Units to move player upwards to compensate simulated perfs
 #define PS_MAX_REWARD_TURN_RATE 0.703125 // Degrees per tick (90 degrees per second)
 #define PS_MAX_TURN_RATE_DECREMENT 0.015625 // Degrees per tick (2 degrees per second)
 #define PS_SPEED_MAX 26.54321 // Units

@@ -9,7 +9,7 @@
 
 #undef REQUIRE_EXTENSIONS
 #undef REQUIRE_PLUGIN
-
+#include <updater>
 
 #pragma newdecls required
 #pragma semicolon 1
@@ -25,7 +25,7 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-
+#define UPDATER_URL GOKZ_UPDATER_BASE_URL..."gokz-playermodels.txt"
 #define PLAYER_MODEL_T "models/player/tm_leet_varianta.mdl"
 #define PLAYER_MODEL_CT "models/player/ctm_idf_variantc.mdl"
 
@@ -50,12 +50,18 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-
+	if (LibraryExists("updater"))
+	{
+		Updater_AddPlugin(UPDATER_URL);
+	}
 }
 
 public void OnLibraryAdded(const char[] name)
 {
-
+	if (StrEqual(name, "updater"))
+	{
+		Updater_AddPlugin(UPDATER_URL);
+	}
 }
 
 
@@ -67,7 +73,14 @@ public void OnPlayerSpawn(Event event, const char[] name, bool dontBroadcast) //
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if (IsValidClient(client))
 	{
-		UpdatePlayerModel(client);
+		// Can't use a timer here because it's not precise enough. We want exactly 2 ticks of delay!
+		// 2 ticks is the minimum amount of time after which gloves will work.
+		// The reason we need precision is because SetEntityModel momentarily resets the
+		// player hull to standing (or something along those lines), so when a player
+		// spawns/gets reset to a crouch tunnel where there's a trigger less than 18 units from the top
+		// of the ducked player hull, then they touch that trigger! SetEntityModel interferes with the
+		// fix for that (JoinTeam in gokz-core/misc calls TeleportPlayer in gokz.inc, which fixes that bug).
+		RequestFrame(RequestFrame_UpdatePlayerModel, GetClientUserId(client));
 	}
 }
 
@@ -125,13 +138,12 @@ public void OnConVarChanged(ConVar convar, const char[] oldValue, const char[] n
 
 // =====[ PLAYER MODELS ]=====
 
-void UpdatePlayerModel(int client)
+public void RequestFrame_UpdatePlayerModel(int userid)
 {
-	// Do this after a delay so that gloves apply correctly after spawning
-	CreateTimer(0.1, Timer_UpdatePlayerModel, GetClientUserId(client));
+	RequestFrame(RequestFrame_UpdatePlayerModel2, userid);
 }
 
-public Action Timer_UpdatePlayerModel(Handle timer, int userid)
+public void RequestFrame_UpdatePlayerModel2(int userid)
 {
 	int client = GetClientOfUserId(userid);
 	if (!IsValidClient(client) || !IsPlayerAlive(client))
