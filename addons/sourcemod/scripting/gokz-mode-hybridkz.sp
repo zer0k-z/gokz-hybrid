@@ -14,7 +14,7 @@
 #pragma newdecls required
 #pragma semicolon 1
 
-
+#include "gokz-mode-hybridkz/csgo_movement_unlocker.sp"
 
 public Plugin myinfo = 
 {
@@ -25,18 +25,35 @@ public Plugin myinfo =
 	url = "https://bitbucket.org/kztimerglobalteam/gokz"
 };
 
-#define MODE_VERSION 3
-#define PERF_SOFT_SPEED_CAP_START 350.0
-#define PERF_SOFT_SPEED_CAP_END 750.0
-#define PERF_TICKS 2
-#define PERF_VERTICAL_COMPENSATION 1.479301453 // Units to move player upwards to compensate simulated perfs
+#define MODE_VERSION 4
+
+#define PERF_MIN_SPEED_CAP 325.0
+#define PERF_MAX_SPEED_CAP 650.0
+#define PERF_SPEED_CAP_GAIN 32.5
+#define PERF_TICKS 3
+
 #define PS_MAX_REWARD_TURN_RATE 0.703125 // Degrees per tick (90 degrees per second)
 #define PS_MAX_TURN_RATE_DECREMENT 0.015625 // Degrees per tick (2 degrees per second)
 #define PS_SPEED_MAX 26.0 // Units
 #define PS_SPEED_INCREMENT 0.65 // Units per tick
 #define PS_GRACE_TICKS 3 // No. of ticks allowed to fail prestrafe checks when prestrafing - helps players with low fps
+
 #define DUCK_SPEED_NORMAL 8.0
 #define DUCK_SPEED_MINIMUM 6.0234375 // Equal to if you just ducked/unducked for the first time in a while
+
+#define GROUND_SPEED_CAP_SOFT_TICK 4 // at which tick on ground to clamp speed on ground
+
+#define STAMINA_SPEED_FACTOR 0.066667 // Falling at 300u/s vertically results in 20% speed loss
+#define STAMINA_MIN_SPEED_FACTOR 0.5
+#define STAMINA_JUMP_FACTOR 0.4
+#define STAMINA_MIN_JUMP_VELOCITY 270.380968 // 48 units high
+#define STAMINA_MIN_RECOVERY_RATE 8.841110 // Fully recover stamina lost from a noduck longjump in one doubleduck
+
+#define DOUBLEDUCK_HEIGHT 36.0 // Has to be more or equal to 20 units.
+#define DOUBLEDUCK_GRACE_FRAMES 5
+#define DOUBLEDUCK_MIN_SPEED_SCALE 0.75 // Maximum speed reduction
+#define STANDING_MINS view_as<float>({-16.0, -16.0,  0.0})
+#define STANDING_MAXS view_as<float>({ 16.0,  16.0, 63.0})
 
 float gF_ModeCVarValues[MODECVAR_COUNT] = 
 {
@@ -68,18 +85,26 @@ float gF_ModeCVarValues[MODECVAR_COUNT] =
 
 bool gB_GOKZCore;
 ConVar gCV_ModeCVar[MODECVAR_COUNT];
+
 float gF_PSBonusSpeed[MAXPLAYERS + 1];
 float gF_PSVelMod[MAXPLAYERS + 1];
 float gF_PSVelModLanding[MAXPLAYERS + 1];
 bool gB_PSTurningLeft[MAXPLAYERS + 1];
 float gF_PSTurnRate[MAXPLAYERS + 1];
 int gI_PSTicksSinceIncrement[MAXPLAYERS + 1];
+
 int gI_OldButtons[MAXPLAYERS + 1];
 bool gB_OldOnGround[MAXPLAYERS + 1];
+float gF_OldOrigin[MAXPLAYERS + 1][3];
 float gF_OldAngles[MAXPLAYERS + 1][3];
 float gF_OldVelocity[MAXPLAYERS + 1][3];
-bool gB_Jumpbugged[MAXPLAYERS + 1];
 
+float gF_PerfTakeoffSpeedCap[MAXPLAYERS + 1];
+
+bool gB_Jumpbugged[MAXPLAYERS + 1];
+bool gB_AllowDoubleDuck[MAXPLAYERS + 1];
+float gF_Stamina[MAXPLAYERS + 1];
+int gI_OldFlags[MAXPLAYERS + 1];
 
 
 // =====[ PLUGIN EVENTS ]=====
@@ -91,6 +116,8 @@ public void OnPluginStart()
 		SetFailState("gokz-mode-HybridKZ only supports 128 tickrate servers.");
 	}
 	
+	OnPluginStart_MovementUnlocker();
+
 	CreateConVars();
 }
 
@@ -117,6 +144,7 @@ public void OnPluginEnd()
 	{
 		GOKZ_SetModeLoaded(Mode_HybridKZ, false);
 	}
+	OnPluginEnd_MovementUnlocker();
 }
 
 public void OnLibraryAdded(const char[] name)
@@ -159,6 +187,16 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	KZPlayer player = KZPlayer(client);
 	RemoveCrouchJumpBind(player, buttons);
 	ReduceDuckSlowdown(player);
+	ApplyGroundSpeedCap(player, cmdnum);
+
+	int flags = GetEntityFlags(player.ID);
+	if (player.Jumped && !(flags & FL_ONGROUND) && gI_OldFlags[player.ID] & FL_ONGROUND)
+	{
+		ApplyJumpStamina(player);
+	}
+	
+
+	ApplyGroundStamina(player, flags);
 	TweakVelMod(player, angles);
 	FixWaterBoost(player, buttons);
 	if (gB_Jumpbugged[player.ID])
@@ -166,12 +204,18 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		TweakJumpbug(player);
 	}
 	
+	// Restore stamina
+	gF_Stamina[player.ID] -= FloatMax(STAMINA_MIN_RECOVERY_RATE, gF_Stamina[player.ID] / 33); // You get back all stamina in 0.89s (worst scenario)
+	gF_Stamina[player.ID] = FloatMax(gF_Stamina[player.ID], 0.0);
+
+	DoDoubleDuck(player, buttons, cmdnum);
 	gB_Jumpbugged[player.ID] = false;
 	gI_OldButtons[player.ID] = buttons;
-	gB_OldOnGround[player.ID] = Movement_GetOnGround(client);
+	gI_OldFlags[player.ID] = GetEntityFlags(player.ID);
+	gB_OldOnGround[player.ID] = Movement_GetOnGround(client);	
+	player.GetOrigin(gF_OldOrigin[player.ID]);
 	Movement_GetEyeAngles(client, gF_OldAngles[player.ID]);
 	Movement_GetVelocity(client, gF_OldVelocity[client]);
-	
 	return Plugin_Continue;
 }
 
@@ -185,6 +229,17 @@ public void SDKHook_OnClientPreThink_Post(int client)
 	// Don't tweak convars if GOKZ isn't running
 	if (gB_GOKZCore)
 	{
+		// need to cap speed to 250.0 if it's between 250 and 278 and prestrafe mode isn't css/1.6,
+		// so that you don't get doubled prestrafe from css/1.6 pre because of the unlocked speed.
+		float speed = Movement_GetSpeed(client);
+		if (speed > 278.0)
+		{
+			MovementUnlocker_PatchBytes();
+		}
+		else
+		{
+			MovementUnlocker_UnpatchBytes();
+		}
 		TweakConVars();
 	}
 }
@@ -213,8 +268,8 @@ public void Movement_OnStartTouchGround(int client)
 	{
 		return;
 	}
-	
 	KZPlayer player = KZPlayer(client);
+	ApplyLandStamina(player);
 	gF_PSVelModLanding[player.ID] = gF_PSVelMod[player.ID];
 }
 
@@ -229,6 +284,7 @@ public void Movement_OnStopTouchGround(int client, bool jumped)
 	if (jumped)
 	{
 		TweakJump(player);
+		TweakJumpHeight(player);
 	}
 	else if (gB_GOKZCore)
 	{
@@ -347,6 +403,7 @@ void ResetVelMod(KZPlayer player)
 	gF_PSBonusSpeed[player.ID] = 0.0;
 	gF_PSVelMod[player.ID] = 1.0;
 	gF_PSTurnRate[player.ID] = 0.0;
+	gF_PerfTakeoffSpeedCap[player.ID] = PERF_MIN_SPEED_CAP;
 }
 
 float CalcPrestrafeVelMod(KZPlayer player, const float angles[3])
@@ -466,21 +523,38 @@ float CalcWeaponVelMod(KZPlayer player)
 
 // =====[ JUMPING ]=====
 
+void TweakJumpHeight(KZPlayer player)
+{
+	float velocity[3];
+	float playergravity = GetEntityGravity(player.ID);
+	if (!Movement_GetDucking(player.ID) && !(GetEntityFlags(player.ID) & FL_DUCKING))
+	{
+		player.GetVelocity(velocity);
+		if (playergravity == 0.0)
+		{
+			velocity[2] += 0.5 * GetConVarFloat(FindConVar("sv_gravity")) * GetGameFrameTime();
+		}
+		else
+		{
+			velocity[2] += GetEntityGravity(player.ID) * 0.5 * GetConVarFloat(FindConVar("sv_gravity")) * GetGameFrameTime();
+		}
+		player.SetVelocity(velocity);
+	}
+}
 void TweakJump(KZPlayer player)
 {
 	int cmdsSinceLanding = player.TakeoffCmdNum - player.LandingCmdNum;
 	
 	if (cmdsSinceLanding <= PERF_TICKS)
 	{
+		if (cmdsSinceLanding == 1)
+		{
+			NerfRealPerf(player);
+		}
 		if (cmdsSinceLanding > 1 || player.TakeoffSpeed > SPEED_NORMAL)
 		{
 			ApplyTweakedTakeoffSpeed(player);
-			
-			if (cmdsSinceLanding > 1)
-			{
-				CompensateSimulatedPerf(player);
-			}
-			
+
 			// Restore prestrafe lost due to briefly being on the ground
 			gF_PSVelMod[player.ID] = gF_PSVelModLanding[player.ID];
 			
@@ -518,15 +592,21 @@ void ApplyTweakedTakeoffSpeed(KZPlayer player)
 	player.SetVelocity(newVelocity);
 }
 
-// Teleports the player up, making sure they don't get put into a ceiling
-void CompensateSimulatedPerf(KZPlayer player)
+void NerfRealPerf(KZPlayer player)
 {
-	float mins[3], maxs[3], startPosition[3], endPosition[3], newOrigin[3];
+	// Not worth worrying about if player is already falling
+	if (player.VerticalVelocity < EPSILON)
+	{
+		return;
+	}
 	
-	player.GetOrigin(startPosition);
+	// Work out where the ground was when they bunnyhopped
+	float startPosition[3], endPosition[3], mins[3], maxs[3], groundOrigin[3];
+	
+	startPosition = gF_OldOrigin[player.ID];
 	
 	endPosition = startPosition;
-	endPosition[2] = startPosition[2] + PERF_VERTICAL_COMPENSATION;
+	endPosition[2] = endPosition[2] - 2.0; // Should be less than 2.0 units away
 	
 	GetEntPropVector(player.ID, Prop_Send, "m_vecMins", mins);
 	GetEntPropVector(player.ID, Prop_Send, "m_vecMaxs", maxs);
@@ -540,29 +620,24 @@ void CompensateSimulatedPerf(KZPlayer player)
 		TraceEntityFilterPlayers, 
 		player.ID);
 	
+	// This is expected to always hit
 	if (TR_DidHit(trace))
 	{
-		TR_GetEndPosition(newOrigin, trace);
+		TR_GetEndPosition(groundOrigin, trace);
 		
-		// Set vertical velocity to match what happens when player hits a ceiling
-		float newVelocity[3];
-		player.GetVelocity(newVelocity);
-		newVelocity[2] = -3.125;
-		player.SetVelocity(newVelocity);
-	}
-	else
-	{
+		// Teleport player downwards so it's like they jumped from the ground
+		float newOrigin[3];
 		player.GetOrigin(newOrigin);
-		newOrigin[2] = newOrigin[2] + PERF_VERTICAL_COMPENSATION;
-	}
-	
-	if (gB_GOKZCore)
-	{
-		GOKZ_SetValidJumpOrigin(player.ID, newOrigin);
-	}
-	else
-	{
-		SetEntPropVector(player.ID, Prop_Data, "m_vecAbsOrigin", newOrigin);
+		newOrigin[2] -= gF_OldOrigin[player.ID][2] - groundOrigin[2];
+		
+		if (gB_GOKZCore)
+		{
+			GOKZ_SetValidJumpOrigin(player.ID, newOrigin);
+		}
+		else
+		{
+			SetEntPropVector(player.ID, Prop_Data, "m_vecAbsOrigin", newOrigin);
+		}
 	}
 	
 	delete trace;
@@ -570,6 +645,7 @@ void CompensateSimulatedPerf(KZPlayer player)
 
 void TweakJumpbug(KZPlayer player)
 {
+	NerfRealPerf(player);
 	if (player.Speed > SPEED_NORMAL)
 	{
 		Movement_SetSpeed(player.ID, CalcTweakedTakeoffSpeed(player, true), true);
@@ -587,27 +663,47 @@ float CalcTweakedTakeoffSpeed(KZPlayer player, bool jumpbug = false)
 	// Formula
 	if (jumpbug)
 	{
-		if (player.Speed < PERF_SOFT_SPEED_CAP_START)
+		if (player.Speed < PERF_MIN_SPEED_CAP)
 		{
+			gF_PerfTakeoffSpeedCap[player.ID] = FloatMax(PERF_MIN_SPEED_CAP, player.Speed + PERF_SPEED_CAP_GAIN);
 			return player.Speed;
 		}
-		else if (player.Speed > PERF_SOFT_SPEED_CAP_END)
+		else if (player.Speed > gF_PerfTakeoffSpeedCap[player.ID]) // If the player goes over the cap, go slower...
 		{
-			return (0.2 * player.Speed + 200);
+			float newspeed;			 
+		
+			newspeed = FloatMax(gF_PerfTakeoffSpeedCap[player.ID] - (player.Speed - gF_PerfTakeoffSpeedCap[player.ID]), SPEED_NORMAL * gF_PSVelMod[player.ID]);
+			gF_PerfTakeoffSpeedCap[player.ID] = FloatMin(newspeed + PERF_SPEED_CAP_GAIN, PERF_MAX_SPEED_CAP); // Increase the speed cap every bhop.
+		
+			return newspeed;
 		}
-		else return PERF_SOFT_SPEED_CAP_START;
+		else
+		{
+			gF_PerfTakeoffSpeedCap[player.ID] = FloatMax(player.Speed + PERF_SPEED_CAP_GAIN, PERF_MAX_SPEED_CAP);
+			return player.Speed;
+		}
 	}
 	else if (player.LandingSpeed > SPEED_NORMAL)
 	{
-		if (player.LandingSpeed < PERF_SOFT_SPEED_CAP_START)
+		if (player.LandingSpeed < PERF_MIN_SPEED_CAP)
 		{
+			gF_PerfTakeoffSpeedCap[player.ID] = FloatMax(PERF_MIN_SPEED_CAP, player.LandingSpeed + PERF_SPEED_CAP_GAIN);
 			return player.LandingSpeed;
 		}
-		else if (player.LandingSpeed > PERF_SOFT_SPEED_CAP_END)
+		else if (player.LandingSpeed > gF_PerfTakeoffSpeedCap[player.ID])
 		{
-			return (0.2 * player.LandingSpeed + 200);
-		}		
-		else return PERF_SOFT_SPEED_CAP_START;
+			float newspeed;
+	
+			newspeed = FloatMax(gF_PerfTakeoffSpeedCap[player.ID] - (player.LandingSpeed - gF_PerfTakeoffSpeedCap[player.ID]), SPEED_NORMAL * gF_PSVelMod[player.ID]);
+			gF_PerfTakeoffSpeedCap[player.ID] = FloatMin(newspeed + PERF_SPEED_CAP_GAIN, PERF_MAX_SPEED_CAP);
+		
+			return newspeed;
+		}
+		else
+		{
+			gF_PerfTakeoffSpeedCap[player.ID] = FloatMin(player.LandingSpeed + PERF_SPEED_CAP_GAIN, PERF_MAX_SPEED_CAP);
+			return player.LandingSpeed;
+		}
 	}
 
 	return player.LandingSpeed;
@@ -755,3 +851,132 @@ void ReduceDuckSlowdown(KZPlayer player)
 		player.DuckSpeed = DUCK_SPEED_MINIMUM;
 	}
 } 
+
+static bool IsValidPlayerPos(int client, float origin[3])
+{
+	TR_TraceHullFilter(origin, origin,
+		STANDING_MINS,
+		STANDING_MAXS,
+		MASK_PLAYERSOLID, TraceEntityFilterPlayers, client);
+	
+	return !TR_DidHit();
+}
+
+void DoDoubleDuck(KZPlayer player, int buttons, int cmdnum)
+{
+	int flags = GetEntityFlags(player.ID);
+	if (flags & FL_ONGROUND)
+	{
+		if (flags & FL_DUCKING)
+		{
+			gB_AllowDoubleDuck[player.ID] = false;
+		}
+		else if (buttons & IN_DUCK)
+		{
+			gB_AllowDoubleDuck[player.ID] = true;
+		}
+		else if (GetEntProp(player.ID, Prop_Data, "m_bDucking")
+			&& gB_AllowDoubleDuck[player.ID])
+		{
+			// Is transitioning?
+			float origin[3];
+			Movement_GetOrigin(player.ID, origin);
+			origin[2] += DOUBLEDUCK_HEIGHT;
+			if (IsValidPlayerPos(player.ID, origin))
+			{
+				TeleportEntity(player.ID, origin, NULL_VECTOR, NULL_VECTOR);
+				
+				int cmdsSinceLanding = cmdnum - player.LandingCmdNum;
+				if (cmdsSinceLanding <= DOUBLEDUCK_GRACE_FRAMES)
+				{
+					float newVelocity[3];
+					// NOTE: the speed scale here is just because the landing speed doesn't get reduced by ducking speed properly.
+					// usually you go from 250 to ~243 speed when you do a single doubleduck.
+					// The faster your speed is, the more speed you lose using doubleduck. There is no loss under the bhop cap.
+					float newSpeed = player.LandingSpeed * FloatMax(FloatMin(PERF_MIN_SPEED_CAP / player.LandingSpeed, 1.0), DOUBLEDUCK_MIN_SPEED_SCALE);
+
+					float speed = player.Speed;
+					
+					if (speed > 0.0)
+					{
+						player.GetVelocity(newVelocity);
+					}
+					else
+					{
+						player.GetLandingVelocity(newVelocity);
+					}
+					
+					SetVectorHorizontalLength(newVelocity, newSpeed);
+					player.SetVelocity(newVelocity);
+				}
+			}
+		}
+	}
+}
+
+void ApplyGroundSpeedCap(KZPlayer player, int cmdnum)
+{
+	int flags = GetEntityFlags(player.ID);
+	if (flags & FL_ONGROUND)
+	{
+		int cmdnumsOnGround = cmdnum - Movement_GetLandingCmdNum(player.ID);
+		
+		if (cmdnumsOnGround == GROUND_SPEED_CAP_SOFT_TICK)
+		{
+			float velocity[3];
+			player.GetVelocity(velocity);
+			float speed = GetVectorHorizontalLength(velocity);
+			
+			float maxSpeed = SPEED_NORMAL * gF_PSVelMod[player.ID];
+			gF_PerfTakeoffSpeedCap[player.ID] = PERF_MIN_SPEED_CAP; // Reset bhop speed cap as well
+			if (flags & FL_DUCKING) 
+			{
+				maxSpeed = 85.0 * gF_PSVelMod[player.ID];
+			}
+			
+			if (speed > maxSpeed)
+			{
+				SetVectorHorizontalLength(velocity, maxSpeed);
+				player.SetVelocity(velocity);
+			}
+		}
+	}
+}
+
+void ApplyJumpStamina(KZPlayer player)
+{
+	if (gF_Stamina[player.ID] > 0.0)
+	{
+		float ratio = 1 - (gF_Stamina[player.ID] * STAMINA_JUMP_FACTOR) / 1000;
+		float velocity[3];
+		player.GetVelocity(velocity);
+		velocity[2] *= ratio;
+		velocity[2] = FloatMax(STAMINA_MIN_JUMP_VELOCITY, velocity[2]);
+		player.SetVelocity(velocity);
+	}
+}
+void ApplyLandStamina(KZPlayer player)
+{
+	int flags = GetEntityFlags(player.ID);
+	
+	if (player.Jumped && flags & FL_ONGROUND && !(gI_OldFlags[player.ID] & FL_ONGROUND)) 
+	{
+		gF_Stamina[player.ID] -= gF_OldVelocity[player.ID][2];
+	}
+}
+
+void ApplyGroundStamina(KZPlayer player, int flags)
+{
+	if (flags & FL_ONGROUND)
+	{
+		if (gF_Stamina[player.ID] > 0.0)
+		{
+			float ratio = FloatMax(1 - (gF_Stamina[player.ID] * STAMINA_SPEED_FACTOR) / 1000, STAMINA_MIN_SPEED_FACTOR); // Capped at 750u/s
+			float velocity[3];
+			player.GetVelocity(velocity);
+			velocity[0] *= ratio;
+			velocity[1] *= ratio;
+			player.SetVelocity(velocity);
+		}
+	}
+}
