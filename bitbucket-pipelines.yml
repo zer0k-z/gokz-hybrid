@@ -12,7 +12,7 @@ definitions:
       - cd ./addons/sourcemod/scripting
       - export BITBUCKET_COMMIT_SHORT=$(echo ${BITBUCKET_COMMIT} | cut -c1-7)
       - echo "#define GOKZ_VERSION \"${BITBUCKET_COMMIT_SHORT}\"" > include/gokz/version.inc
-      - for file in gokz-*.sp; do ./spcomp $file; done;
+      - for file in gokz-*.sp; do echo $file; done;
       - cd ../../../
       - mv addons/sourcemod/scripting/*.smx addons/sourcemod/plugins
 
