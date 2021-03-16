@@ -525,21 +525,63 @@ float CalcWeaponVelMod(KZPlayer player)
 
 void TweakJumpHeight(KZPlayer player)
 {
-	float velocity[3];
-	float playergravity = GetEntityGravity(player.ID);
 	if (!Movement_GetDucking(player.ID) && !(GetEntityFlags(player.ID) & FL_DUCKING))
 	{
+		// Velocity tweak
+		float velocity[3];
+		float playergravity = GetEntityGravity(player.ID);
+		float servergravity = GetConVarFloat(FindConVar("sv_gravity"));
 		player.GetVelocity(velocity);
 		if (playergravity == 0.0)
 		{
-			velocity[2] += 0.5 * GetConVarFloat(FindConVar("sv_gravity")) * GetGameFrameTime();
+			velocity[2] += 0.5 * servergravity * GetGameFrameTime();
 		}
 		else
 		{
-			velocity[2] += GetEntityGravity(player.ID) * 0.5 * GetConVarFloat(FindConVar("sv_gravity")) * GetGameFrameTime();
+			velocity[2] += GetEntityGravity(player.ID) * 0.5 * servergravity * GetGameFrameTime();
 		}
 		player.SetVelocity(velocity);
-	}
+
+		// Origin tweak
+		float mins[3], maxs[3], startPosition[3], endPosition[3], newOrigin[3];
+		
+		player.GetOrigin(startPosition);
+		
+		endPosition = startPosition;
+		endPosition[2] = startPosition[2] + 0.5 * servergravity * GetGameFrameTime() * GetGameFrameTime();
+		
+		GetEntPropVector(player.ID, Prop_Send, "m_vecMins", mins);
+		GetEntPropVector(player.ID, Prop_Send, "m_vecMaxs", maxs);
+		
+		Handle trace = TR_TraceHullFilterEx(
+			startPosition, 
+			endPosition, 
+			mins, 
+			maxs, 
+			MASK_PLAYERSOLID, 
+			TraceEntityFilterPlayers, 
+			player.ID);
+		
+		if (TR_DidHit(trace))
+		{
+			TR_GetEndPosition(newOrigin, trace);
+			
+			// Set vertical velocity to match what happens when player hits a ceiling
+			float newVelocity[3];
+			player.GetVelocity(newVelocity);
+			newVelocity[2] = -3.125;
+			player.SetVelocity(newVelocity);
+		}
+		else
+		{
+			player.GetOrigin(newOrigin);
+			newOrigin[2] = newOrigin[2] + PERF_VERTICAL_COMPENSATION;
+		}
+		
+		player.SetOrigin(newOrigin);
+		
+		delete trace;
+	}	
 }
 void TweakJump(KZPlayer player)
 {
