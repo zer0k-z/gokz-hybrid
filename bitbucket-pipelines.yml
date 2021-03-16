@@ -6,7 +6,6 @@ definitions:
       - addons/sourcemod/plugins/gokz-*.smx
     script:
       - echo "x86" > /etc/apk/arch
-      - apk add --no-cache libcurl
       - apk update
       - apk add wget libc6-compat libstdc++
       - wget -q -O - "http://sourcemod.net/latest.php?os=linux&version=1.10" | tar x -vzf -
