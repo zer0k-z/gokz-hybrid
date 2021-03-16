@@ -4,15 +4,14 @@ definitions:
     name: Compile Plugins
     artifacts:
       - addons/sourcemod/plugins/gokz-*.smx
-    script:
-      - echo "x86" > /etc/apk/arch
+    script:      
       - apk update
       - apk add wget libc6-compat libstdc++
       - wget -q -O - "http://sourcemod.net/latest.php?os=linux&version=1.10" | tar x -vzf -
       - cd ./addons/sourcemod/scripting
       - export BITBUCKET_COMMIT_SHORT=$(echo ${BITBUCKET_COMMIT} | cut -c1-7)
       - echo "#define GOKZ_VERSION \"${BITBUCKET_COMMIT_SHORT}\"" > include/gokz/version.inc
-      - for file in gokz-*.sp; do ./spcomp $file; done;
+      - for file in gokz-*.sp; do ./spcomp64 $file; done;
       - cd ../../../
       - mv addons/sourcemod/scripting/*.smx addons/sourcemod/plugins
 clone:
