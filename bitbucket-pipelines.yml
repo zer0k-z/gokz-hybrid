@@ -7,6 +7,7 @@ definitions:
       - addons/sourcemod/plugins/gokz-*.smx
     script:
       - apk update
+      - apk add wget libstdc++6
       - wget -q -O - "http://sourcemod.net/latest.php?os=linux&version=1.10" | tar x -vzf -
       - cd ./addons/sourcemod/scripting
       - export BITBUCKET_COMMIT_SHORT=$(echo ${BITBUCKET_COMMIT} | cut -c1-7)
