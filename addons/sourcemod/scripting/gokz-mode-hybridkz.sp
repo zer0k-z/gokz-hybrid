@@ -575,7 +575,7 @@ void TweakJumpHeight(KZPlayer player)
 		else
 		{
 			player.GetOrigin(newOrigin);
-			newOrigin[2] = newOrigin[2] + PERF_VERTICAL_COMPENSATION;
+			newOrigin[2] = newOrigin[2] + 0.5 * servergravity * GetGameFrameTime() * GetGameFrameTime();
 		}
 		
 		player.SetOrigin(newOrigin);
