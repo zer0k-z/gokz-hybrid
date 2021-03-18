@@ -43,7 +43,7 @@ public Plugin myinfo =
 
 #define GROUND_SPEED_CAP_SOFT_TICK 4 // at which tick on ground to clamp speed on ground
 
-#define STAMINA_SPEED_FACTOR 0.066667 // Falling at 300u/s vertically results in 20% speed loss
+#define STAMINA_SPEED_FACTOR 0.333333 // Falling at 300u/s vertically results in 10% speed loss
 #define STAMINA_MIN_SPEED_FACTOR 0.5
 #define STAMINA_JUMP_FACTOR 0.4
 #define STAMINA_MIN_JUMP_VELOCITY 270.380968 // 48 units high
@@ -103,6 +103,7 @@ float gF_PerfTakeoffSpeedCap[MAXPLAYERS + 1];
 
 bool gB_Jumpbugged[MAXPLAYERS + 1];
 bool gB_AllowDoubleDuck[MAXPLAYERS + 1];
+bool gB_JustDoubleDucked[MAXPLAYERS + 1];
 float gF_Stamina[MAXPLAYERS + 1];
 int gI_OldFlags[MAXPLAYERS + 1];
 
@@ -271,6 +272,7 @@ public void Movement_OnStartTouchGround(int client)
 	KZPlayer player = KZPlayer(client);
 	ApplyLandStamina(player);
 	gF_PSVelModLanding[player.ID] = gF_PSVelMod[player.ID];
+	gB_JustDoubleDucked[player.ID] = false;
 }
 
 public void Movement_OnStopTouchGround(int client, bool jumped)
@@ -933,7 +935,8 @@ void DoDoubleDuck(KZPlayer player, int buttons, int cmdnum)
 					float newVelocity[3];
 					// NOTE: the speed scale here is just because the landing speed doesn't get reduced by ducking speed properly.
 					// usually you go from 250 to ~243 speed when you do a single doubleduck.
-					// The faster your speed is, the more speed you lose using doubleduck. There is no loss under the bhop cap.
+					// The faster your speed is, the more speed you lose using doubleduck. There is a small loss under the bhop cap,
+					// by being IN_DUCK for one tick.
 					float newSpeed = player.LandingSpeed * FloatMax(FloatMin(PERF_MIN_SPEED_CAP / player.LandingSpeed, 1.0), DOUBLEDUCK_MIN_SPEED_SCALE);
 
 					float speed = player.Speed;
@@ -950,6 +953,7 @@ void DoDoubleDuck(KZPlayer player, int buttons, int cmdnum)
 					SetVectorHorizontalLength(newVelocity, newSpeed);
 					player.SetVelocity(newVelocity);
 				}
+				gB_JustDoubleDucked[player.ID] = true;
 			}
 		}
 	}
@@ -1000,7 +1004,9 @@ void ApplyLandStamina(KZPlayer player)
 {
 	int flags = GetEntityFlags(player.ID);
 	
-	if (player.Jumped && flags & FL_ONGROUND && !(gI_OldFlags[player.ID] & FL_ONGROUND)) 
+	// Always apply stamina, except for landing after doubleducks.
+
+	if (!gB_JustDoubleDucked[player.ID] && flags & FL_ONGROUND && !(gI_OldFlags[player.ID] & FL_ONGROUND)) 
 	{
 		gF_Stamina[player.ID] -= gF_OldVelocity[player.ID][2];
 	}
@@ -1012,7 +1018,7 @@ void ApplyGroundStamina(KZPlayer player, int flags)
 	{
 		if (gF_Stamina[player.ID] > 0.0)
 		{
-			float ratio = FloatMax(1 - (gF_Stamina[player.ID] * STAMINA_SPEED_FACTOR) / 1000, STAMINA_MIN_SPEED_FACTOR); // Capped at 750u/s
+			float ratio = FloatMax(1 - (gF_Stamina[player.ID] * STAMINA_SPEED_FACTOR) / 1000, STAMINA_MIN_SPEED_FACTOR); // Effectively capped at 750u/s
 			float velocity[3];
 			player.GetVelocity(velocity);
 			velocity[0] *= ratio;
