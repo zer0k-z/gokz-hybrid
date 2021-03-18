@@ -63,16 +63,12 @@ pipelines:
             - apk add zip
             - mkdir builds
             - zip -r builds/GOKZ-hybrid-latest.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\*
-            - cp builds/GOKZ-latest.zip builds/GOKZ-v${BITBUCKET_TAG}.zip
             - zip -r builds/GOKZ-hybrid-latest-upgrade.zip . -x builds\* *.git* *.md bitbucket-pipelines.yml LICENSE addons/sourcemod/scripting\* cfg\*
-            - cp builds/GOKZ-latest-upgrade.zip builds/GOKZ-v${BITBUCKET_TAG}-upgrade.zip
       - step:
           name: Upload Release
           trigger: manual
           script:
             - apk update
             - apk add curl
-            - curl -X POST --user "${BB_AUTH_STRING}" "https://api.bitbucket.org/2.0/repositories/${BITBUCKET_REPO_OWNER}/${BITBUCKET_REPO_SLUG}/downloads" --form files=@"builds/GOKZ-v${BITBUCKET_TAG}.zip"
-            - curl -X POST --user "${BB_AUTH_STRING}" "https://api.bitbucket.org/2.0/repositories/${BITBUCKET_REPO_OWNER}/${BITBUCKET_REPO_SLUG}/downloads" --form files=@"builds/GOKZ-v${BITBUCKET_TAG}-upgrade.zip"
-            - curl -X POST --user "${BB_AUTH_STRING}" "https://api.bitbucket.org/2.0/repositories/${BITBUCKET_REPO_OWNER}/${BITBUCKET_REPO_SLUG}/downloads" --form files=@"builds/GOKZ-latest.zip"
-            - curl -X POST --user "${BB_AUTH_STRING}" "https://api.bitbucket.org/2.0/repositories/${BITBUCKET_REPO_OWNER}/${BITBUCKET_REPO_SLUG}/downloads" --form files=@"builds/GOKZ-latest-upgrade.zip"
+            - curl -X POST --user "${BB_AUTH_STRING}" "https://api.bitbucket.org/2.0/repositories/${BITBUCKET_REPO_OWNER}/${BITBUCKET_REPO_SLUG}/downloads" --form files=@"builds/GOKZ-hybrid-latest.zip"
+            - curl -X POST --user "${BB_AUTH_STRING}" "https://api.bitbucket.org/2.0/repositories/${BITBUCKET_REPO_OWNER}/${BITBUCKET_REPO_SLUG}/downloads" --form files=@"builds/GOKZ-hybrid-latest-upgrade.zip"
