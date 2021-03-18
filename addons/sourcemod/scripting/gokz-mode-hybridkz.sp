@@ -679,15 +679,14 @@ void NerfRealPerf(KZPlayer player)
 		else
 		{
 			SetEntPropVector(player.ID, Prop_Data, "m_vecAbsOrigin", newOrigin);
-		}
+		}		
 	}
 	
 	delete trace;
 }
 
 void TweakJumpbug(KZPlayer player)
-{
-	NerfRealPerf(player);
+{	
 	if (player.Speed > SPEED_NORMAL)
 	{
 		Movement_SetSpeed(player.ID, CalcTweakedTakeoffSpeed(player, true), true);
