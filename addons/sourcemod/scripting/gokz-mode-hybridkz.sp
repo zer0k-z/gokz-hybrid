@@ -689,6 +689,7 @@ void NerfRealPerf(KZPlayer player)
 
 void TweakJumpbug(KZPlayer player)
 {	
+	ApplyJumpStamina(player);
 	if (player.Speed > SPEED_NORMAL)
 	{
 		Movement_SetSpeed(player.ID, CalcTweakedTakeoffSpeed(player, true), true);
