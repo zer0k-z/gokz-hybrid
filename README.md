@@ -1,75 +1,45 @@
-# GOKZ SourceMod Plugins (CS:GO)
-
-GOKZ is a package of [SourceMod](https://www.sourcemod.net/about.php) plugins for CS:GO Kreedz (KZ) servers. The KZ game mode involves [speedrunning](https://en.wikipedia.org/wiki/Speedrun) through custom maps.
-
+HybridKZ is a modified version of SimpleKZ and GameChaos's game mode.
+ 
 ## Features
 
- * **Timer** - Times runs by automatically detecting the use of start and end buttons in KZ maps.
- * **Movement Modes** - Custom movement mechanics. Includes Vanilla, SimpleKZ, and KZTimer modes.
-    * Mode plugins can be used alone (with only MovementAPI) to apply their mechanics at all times.
- * **Jumpstats** - Detailed statistics of your jumps and each individual air strafe.
- * **In-game Options** - Tonnes of options for players, providing them the best possible experience.
- * **Replays** - Record replays of the server's fastest times and use bots to play them back.
- * **Anti-Cheat** - Detect and auto-ban blatant users of bhop macros and cheats (SourceBans++ supported).
- * **Database Support** - Store run times and more using either a MySQL or SQLite database. 
-    * Player options are stored using the clientprefs extension.
- * **GlobalAPI Support** - Submit run times to the GlobalAPI so that players may compete across servers.
- * **Extensive Plugin API** - With forwards, natives, and modularity at its core, GOKZ is highly extensible.
- * Map bonus support, HUD, teleport menu, noclip, !goto, !measure, !race and much, much more.
+**Prestrafe**
+- Much faster prestrafing compared to SimpleKZ, the time to prestrafe to 276 is the same as the time to nopre run straight to 250 (eg. vanilla). 
+- However, you can't prestrafe with just one or 3 movement keys. 
+- Prestrafe bonus is not reset upon changing prestrafe direction (WA to WD for example)
+- Prestrafe increases the minimum bhop speed from 250 up to 276.
+- Prestrafe gain is preserved in air (as opposed to 0.175u loss every tick in SimpleKZ). 
 
-For more information about what each plugin does, please see [PLUGINS.md](PLUGINS.md).
+**Doubleduck**
+- Quickly ducking and unducking on the ground raises the player by 36 units (or 27 if you land while standing).
+- In contrast to GC's doubleduck, you can do this under a 99 height roof instead of a minimum of 108.
+- Doubleduck speed loss now depends on the landing speed. The faster you go, the more slowed down you get with double duck (up to 25% reduction).
+- The tick window for doubleduck to preserve speed is 5. 
 
-## Usage
+**Stamina**
+- Added landing stamina, which slows player upon landing. Landing stamina depends on vertical velocity upon landing. Landing stamina is not applied upon doubleducking.
+- Stamina slows running speed up to 50% and jump height to a minimum of 48 units. The maximum speed penalty is reached at 750u/s, while the maximum jump penalty is reached at ~266u/s (lowjump landing speed). 
+- When you land you still have the prestrafe speed modifier but slightly slowed down by stamina.
+- Current version of stamina does not affect acceleration (airstrafe included), unlike vanilla CSGO.
 
-### Server Requirements
+**Bunnyhop**
+- Bhop prespeed formula is similar to GameChaos's bhop cap, but it is now dynamic. The bhop cap is your previous takeoff speed + 32.5 with a minimum cap of 325 and a maximum cap is 650. You can reach this in 10 perfect bhops. 
+- Perf window is 3 ticks, the soft ground speed cap applies after 4 ticks, and there's a 5 tick window for doubleduck. 
+- Every jump has the same height as a crouch jump, with the exception of jumpbug, which varies from 55.8 to 57.8 units. 
+- Perfs are now nerfed for consistent bhop height.
 
- * 128 Tick (`-tickrate 128`)
- * [SourceMod ^1.10](https://www.sourcemod.net/downloads.php?branch=stable)
- * [DHooks Extension ^2.2.0](https://forums.alliedmods.net/showpost.php?p=2588686&postcount=589)
- * [MovementAPI Plugin ^2.1.0](https://github.com/danzayau/MovementAPI)
- * Optional - [GlobalAPI Plugin](https://bitbucket.org/kztimerglobalteam/globalrecordssmplugin) (required for gokz-globals plugin)
- * Optional - A "console cleaner" extension to prevent `Datatable warning` server console spam
- * Optional - [Updater Plugin](https://forums.alliedmods.net/showthread.php?t=169095) (automatically install minor GOKZ updates)
+**Misc**
+- Jump height is now consistently 57.0/66.0 units high.
+- Players will slide for 4 ticks after landing.
 
-### Installing
+## Notes
+- **Jumpstats display is broken** due to jump height fix. Use !jsalways to display distances.
+- Doubleducks are used to get better edge and speed for the next bhop, or to fully restores stamina from a flat ground jump. High fall requires multiple doubleducks in order to fully mitigate stamina's effect.
+- Good double/multi doubleducks can help you reach 325u/s.
+- Stamina's effect on running speed is small on flat ground, but noticeable from a big fall.
+- Bhop is almost always better than LJ, except for height, but you can't gain bhop prespeed by jumping and turning 360 degrees.
+- Speed control is very important on the first few bhops as you can easily lose speed by overstrafing, after reaching 450u/s it becomes easier to keep your bhop prespeed, but you need to handle the high speed instead. You will hover around 600-650u/s at maximum bhop momentum.
+- Many maps seems to be much easier to complete but much harder to fully optimize. Some other maps are impossible to complete because of stamina/high bhop jumps.
+- Replay bots are not well adjusted to HybridKZ yet.
+- Ledgegrabbing is possible on almost every height if you use the correct technique (Double duck for anything under 36 units, flat ground bhop for blocks under 48/57 height, and normal jump for 57/66 blocks). Ledgegrabbing effectively nullifies stamina's effect, allowing you to have a full 57.0 height jump immediately afterwards.
 
- * Ensure your server is up to date and meets the above requirements.
- * Download and extract `GOKZ-latest.zip` from [Downloads](https://bitbucket.org/kztimerglobalteam/gokz/downloads/) to `csgo`.
- * Add a MySQL or SQLite database called `gokz` to `csgo/addons/sourcemod/configs/databases.cfg`.
- * When the plugins first load, various configuration files will be auto-generated and can be found in `csgo/cfg/sourcemod/gokz`.
- * Use `sm_updatemappool` to populate the ranked map pool with those in `csgo/cfg/sourcemod/gokz/gokz-localranks-mappool.cfg`.
-
-Please refer to the forum for a [more detailed installation guide](https://forum.gokz.org/p/guide-gokz).
-
-### Updating
-
- * Minor updates - Download and extract `GOKZ-latest-upgrade.zip` from [Downloads](https://bitbucket.org/kztimerglobalteam/gokz/downloads/) to `csgo`.
- * Major updates - Check the new version's release notes for specific instructions.
-
-### Commands
-
-Please see [COMMANDS.md](COMMANDS.md) for a list of player and admin commands.
-
-### Mapping
-
-Please see [MAPPING.md](MAPPING.md) to see how to make maps that work with GOKZ.
-
-## Contributing
-
-GOKZ is an open-source, community-driven project. If you are interested in helping out, please see [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
-
-## Authors
-
- * **DanZay** - danzayau@gmail.com - [*Steam*](https://steamcommunity.com/id/DanZay)
- * **zealain** - zealained@gmail.com - [*Steam*](https://steamcommunity.com/id/zealain)
- * **KZTimerGlobal Team** - [*Bitbucket*](https://bitbucket.org/kztimerglobalteam/profile/members)
-
-## Links
-
-[Forum](https://forum.gokz.org)
-
-[Discord](https://www.discord.gg/csgokz)
-
-[Steam Group](https://steamcommunity.com/groups/GOKZTimer)
-
-[Wiki](https://bitbucket.org/kztimerglobalteam/gokz/wiki)
+A list of tested maps can be found [here](https://docs.google.com/spreadsheets/d/1dBCF3g1XcN-L9a1k54UXUgAwA9vr5hERYtD1qoUDMNs/edit?usp=sharing).
